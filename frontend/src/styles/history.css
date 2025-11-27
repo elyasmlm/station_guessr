@@ -1,0 +1,86 @@
+/* frontend/src/styles/history.css */
+
+.history-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr); /* colonne gauche plus fine */
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .history-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Colonne gauche : sélection des dates */
+
+.history-sidebar {
+  max-width: 320px;
+}
+
+.history-sidebar-inner {
+  margin-top: 0.5rem;
+  max-height: 360px; /* moins haut qu'avant */
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.history-date-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-date-item {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.8);
+}
+
+.history-date-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.9rem;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.history-date-button:hover {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+}
+
+.history-date-button--active {
+  background: rgba(79, 70, 229, 0.18);
+  color: #e5e7eb;
+}
+
+/* Colonne droite */
+
+.history-right {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-right-header {
+  margin-bottom: 0.25rem;
+}
+
+.history-right-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr);
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .history-right-grid {
+    grid-template-columns: 1fr;
+  }
+}

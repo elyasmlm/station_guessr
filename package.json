@@ -1,0 +1,17 @@
+{
+  "name": "station_guessr",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev:front": "cd frontend && npm run dev",
+    "dev:back": "cd backend && npm run dev",
+    "dev": "concurrently \"npm run dev:front\" \"npm run dev:back\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
