@@ -20,11 +20,14 @@ export async function registerUser(params: {
 }) {
   const { email, password, displayName } = params;
 
-  // Vérifier s'il existe déjà
-  const [rows] = await pool.execute<DbUser[]>(
+  // Vérifier si l'utilisateur existe déjà
+  const [rowsRaw] = await pool.execute(
     "SELECT * FROM users WHERE email = ?",
     [email]
   );
+
+  const rows = rowsRaw as DbUser[];
+
   if (rows.length > 0) {
     const error: any = new Error("Un compte existe déjà avec cet email.");
     error.status = 409;
@@ -33,7 +36,7 @@ export async function registerUser(params: {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const [result] = await pool.execute<mysql.ResultSetHeader>(
+  const [result] = await pool.execute(
     "INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)",
     [email, passwordHash, displayName || null]
   );
@@ -46,9 +49,12 @@ export async function registerUser(params: {
     displayName: displayName || null,
   };
 
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
-  });
+  // Cast options pour éviter l'erreur TS sur expiresIn
+  const token = jwt.sign(
+    { userId: user.id },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN } as any
+  );
 
   return { user, token };
 }
@@ -59,10 +65,12 @@ export async function loginUser(params: {
 }) {
   const { email, password } = params;
 
-  const [rows] = await pool.execute<DbUser[]>(
+  const [rowsRaw] = await pool.execute(
     "SELECT * FROM users WHERE email = ?",
     [email]
   );
+
+  const rows = rowsRaw as DbUser[];
 
   if (rows.length === 0) {
     const error: any = new Error("Email ou mot de passe incorrect.");
@@ -85,9 +93,11 @@ export async function loginUser(params: {
     displayName: userRow.display_name,
   };
 
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
-  });
+  const token = jwt.sign(
+    { userId: user.id },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN } as any
+  );
 
   return { user, token };
 }

@@ -26,17 +26,16 @@ export async function requireAuth(
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
-    const [rows] = await pool.execute<
-      { id: number; email: string; display_name: string | null }[]
-    >("SELECT id, email, display_name FROM users WHERE id = ?", [
-      decoded.userId,
-    ]);
+    const [rowsRaw] = await pool.execute(
+      "SELECT id, email, display_name FROM users WHERE id = ?",
+      [decoded.userId]
+    );
 
-    if (rows.length === 0) {
-      return res
-        .status(401)
-        .json({ error: { message: "Utilisateur invalide." } });
-    }
+    const rows = rowsRaw as {
+      id: number;
+      email: string;
+      display_name: string | null;
+    }[];
 
     const dbUser = rows[0];
 
