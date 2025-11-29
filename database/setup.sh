@@ -52,12 +52,4 @@ else
   echo "❌ Import échoué. Vérifie les permissions / credentials."
 fi
 
-echo "Si tu veux créer l'utilisateur MySQL 'station_user', exécute manuellement en tant que root :"
-cat <<'EOF'
--- Exemple (à exécuter en tant que root MySQL):
-CREATE USER IF NOT EXISTS 'station_user'@'localhost' IDENTIFIED BY 'motdepasse_tres_fort';
-GRANT ALL PRIVILEGES ON station_guessr.* TO 'station_user'@'localhost';
-FLUSH PRIVILEGES;
-EOF
-
 exit 0
