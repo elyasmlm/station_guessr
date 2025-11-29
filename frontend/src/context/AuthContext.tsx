@@ -3,8 +3,8 @@ import {
   useContext,
   useEffect,
   useState,
-  ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import type { AuthUser } from "../types/auth";
 import { fetchMe, login as loginApi, register as registerApi } from "../services/authService";
 
