@@ -48,19 +48,4 @@ CREATE VIEW `games_history` AS
   SELECT id, user_id, date, station_name, attempts, extra_lines, city_revealed, score, created_at
   FROM games;
 
--- Sample data (optionnel)
-INSERT INTO `users` (`email`, `password_hash`, `display_name`) VALUES
-  ('test@example.com', '$2b$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', 'Test User');
-
--- Quelques daily games exemples (dernières dates jusqu'à aujourd'hui)
-INSERT INTO `daily_games` (`date`, `station_name`, `city`, `arrondissement`, `lines_json`) VALUES
-  ('2025-11-27', 'Gare de Test 1', 'Paris', 1, JSON_ARRAY('TRAM 1', 'METRO 2')),
-  ('2025-11-28', 'Gare de Test 2', 'Paris', 2, JSON_ARRAY('TRAM 3a', 'RER A')),
-  ('2025-11-29', 'Gare de Test 3', 'Paris', NULL, JSON_ARRAY('TRAM 5', 'METRO 7'));
-
--- Exemple de parties jouées
-INSERT INTO `games` (`user_id`, `date`, `station_name`, `attempts`, `extra_lines`, `city_revealed`, `score`) VALUES
-  (1, '2025-11-27', 'Gare de Test 1', 3, 1, 0, 120),
-  (1, '2025-11-28', 'Gare de Test 2', 2, 0, 1, 150);
-
 -- Fin du dump
