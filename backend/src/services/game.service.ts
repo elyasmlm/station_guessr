@@ -430,7 +430,7 @@ export async function getGamesHistoryForUser(userId: number) {
 
 export async function getDailyGameByDate(date: string) {
   const [rowsRaw] = await pool.query(
-    `SELECT date, station_name, city, arrondissement, lines_json
+    `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, station_name, city, arrondissement, lines_json
      FROM daily_games
      WHERE date = ?
      LIMIT 1`,
