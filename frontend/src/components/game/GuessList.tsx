@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Guess } from "../../types/game";
 import { fetchAllStations } from "../../services/stationService";
 import type { StationDTO } from "../../services/stationService";

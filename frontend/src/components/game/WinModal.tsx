@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface WinSummary {
   stationName: string;
@@ -89,31 +89,4 @@ export default function WinModal({ open, onClose, summary }: WinModalProps) {
   );
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(0,0,0,0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-};
-
-const modalStyle: React.CSSProperties = {
-  background: '#fff',
-  padding: '1.25rem',
-  borderRadius: 8,
-  width: 'min(560px, 92%)',
-  position: 'relative',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
-};
-
-const closeButtonStyle: React.CSSProperties = {
-  position: 'absolute',
-  right: 8,
-  top: 8,
-  border: 'none',
-  background: 'transparent',
-  fontSize: 20,
-  cursor: 'pointer'
-};
+// Styles are provided via CSS classes in this project; removed unused inline styles.
