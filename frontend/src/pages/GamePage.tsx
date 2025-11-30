@@ -4,6 +4,7 @@ import type { TodayGame, Guess } from "../types/game";
 import StationLinesPanel from "../components/game/StationLinesPanel";
 import GuessInput from "../components/game/GuessInput";
 import GuessList from "../components/game/GuessList";
+import WinModal from "../components/game/WinModal";
 import { isSameStation } from "../utils/stations";
 import { computeScore, type ScoreBreakdown } from "../utils/scoring";
 import { useAuth } from "../context/AuthContext";
@@ -172,6 +173,13 @@ function GamePage() {
     user,
   ]);
 
+  // modal control when user wins
+  const [showWinModal, setShowWinModal] = useState(false);
+
+  useEffect(() => {
+    if (isSolved) setShowWinModal(true);
+  }, [isSolved]);
+
   // ---------- Rendu ----------
 
   if (loading) {
@@ -198,6 +206,19 @@ function GamePage() {
       <div>
         <GuessInput onSubmitGuess={handleSubmitGuess} />
       </div>
+
+      <WinModal
+        open={showWinModal}
+        onClose={() => setShowWinModal(false)}
+        summary={{
+          stationName: game.station.name,
+          date: game.date,
+          attempts: attempts,
+          score: score?.total ?? 0,
+          extraLines: extraLinesUsed,
+          cityRevealed: cityRevealed,
+        }}
+      />
 
       <div
         className="page-grid-2"

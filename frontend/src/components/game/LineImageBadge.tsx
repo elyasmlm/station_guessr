@@ -6,6 +6,7 @@ interface LineImageBadgeProps {
 
 export default function LineImageBadge({ line }: LineImageBadgeProps) {
   const info = getLineImageInfo(line);
+  console.log(info)
 
   return (
     <span

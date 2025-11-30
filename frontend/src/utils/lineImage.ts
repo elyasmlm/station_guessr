@@ -1,5 +1,5 @@
 
-export type LineKind = "METRO" | "RER" | "TRAM";
+export type LineKind = "METRO" | "RER" | "TRAM" | "TRAIN";
 
 export interface LineImageInfo {
   kind: LineKind;
@@ -36,6 +36,18 @@ export function getLineImageInfo(raw: string): LineImageInfo {
       label: letter,
       src: `/lines/rer_${id}.svg`,
       alt: `Ligne RER ${letter}`,
+    };
+  }
+
+    // TRAIN X
+  if (upper.startsWith("TRAIN")) {
+    const letter = upper.replace("TRAIN", "").trim().charAt(0) || "A";
+    const id = letter.toLowerCase();
+    return {
+      kind: "TRAIN",
+      label: letter,
+      src: `/lines/train_${id}.svg`,
+      alt: `Ligne TRAIN ${letter}`,
     };
   }
 

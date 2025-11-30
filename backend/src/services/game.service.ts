@@ -8,10 +8,10 @@ import { pool } from "../config/db";
 
 export type Station = {
   id: string;
-  name: string;        // nom_long
-  lines: string[];     // ex: ["METRO 8", "RER A"]
-  city: string;        // nom_zdc / nom_zda
-  arrondissement?: number; // pour plus tard si tu croises avec un autre dataset
+  name: string;             // nom_long
+  lines: string[];          // ex: ["METRO 8", "RER A"]
+  city: string;             // ville (via géocodage)
+  arrondissement?: number;  // pour Paris uniquement
 };
 
 export type TodayGame = {
@@ -22,6 +22,8 @@ export type TodayGame = {
 
 const IDF_API_URL =
   "https://data.iledefrance.fr/api/explore/v2.1/catalog/datasets/gares-et-stations-du-reseau-ferre-dile-de-france-donnee-generalisee/records";
+
+const BAN_REVERSE_URL = "https://api-adresse.data.gouv.fr/reverse/";
 
 /* -------------------------------------------------------------------------- */
 /*                           Utilitaires de date                              */
@@ -51,6 +53,13 @@ function hashDate(date: string): number {
 let stationsCache: Station[] | null = null;
 let stationsPromise: Promise<Station[]> | null = null;
 
+type RawGeoPoint =
+  | {
+      lat: number;
+      lon: number;
+    }
+  | [number, number];
+
 type RawRecord = {
   codeunique: number;
   nom_long: string;
@@ -60,6 +69,9 @@ type RawRecord = {
   metro?: number | string;
   rer?: number | string;
   tramway?: number | string;
+
+  // ⚠️ suivant les datasets Opendatasoft, ça peut être un objet OU un tableau
+  geo_point_2d?: RawGeoPoint | null;
 };
 
 function parseLines(resCom: string | null | undefined): string[] {
@@ -70,12 +82,90 @@ function parseLines(resCom: string | null | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
-function mapRawRecordToStation(rec: RawRecord): Station | null {
+/* -------------------------- Extraction des coordonnées -------------------- */
+
+function extractLatLonFromRecord(
+  rec: RawRecord
+): { lat: number; lon: number } | null {
+  const gp = rec.geo_point_2d as any;
+
+  if (!gp) return null;
+
+  // Cas tableau [lat, lon]
+  if (Array.isArray(gp) && gp.length >= 2) {
+    const lat = Number(gp[0]);
+    const lon = Number(gp[1]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+      return { lat, lon };
+    }
+  }
+
+  // Cas objet { lat, lon }
+  if (typeof gp === "object" && gp !== null) {
+    const lat = Number(gp.lat ?? gp.Lat ?? gp.latitude);
+    const lon = Number(gp.lon ?? gp.Lon ?? gp.lng ?? gp.longitude);
+    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+      return { lat, lon };
+    }
+  }
+
+  return null;
+}
+
+/* -------------------------- Géocodage inverse BAN ------------------------- */
+
+type ReverseGeocodeResult = {
+  city: string;
+  arrondissement?: number;
+};
+
+async function reverseGeocodeFromLatLon(
+  lat: number,
+  lon: number
+): Promise<ReverseGeocodeResult | null> {
+  try {
+    const { data } = await axios.get(BAN_REVERSE_URL, {
+      params: {
+        lat,
+        lon,
+      },
+      timeout: 3000,
+    });
+
+    const feature = data?.features?.[0];
+    if (!feature) return null;
+
+    const props = feature.properties || {};
+    const city: string = props.city || props.name || "";
+    const postcode: string | undefined = props.postcode;
+
+    if (!city) return null;
+
+    let arrondissement: number | undefined;
+
+    // Déduction de l'arrondissement pour Paris via le code postal
+    if (city === "Paris" && postcode && /^75\d{3}$/.test(postcode)) {
+      const arr = parseInt(postcode.slice(3, 5), 10);
+      if (!Number.isNaN(arr) && arr >= 1 && arr <= 20) {
+        arrondissement = arr;
+      }
+    }
+
+    return { city, arrondissement };
+  } catch (err) {
+    console.error("Erreur reverse geocoding BAN:", err);
+    return null;
+  }
+}
+
+/* ---------------------- Mapping des enregistrements ----------------------- */
+
+function mapRawRecordToStationSkeleton(rec: RawRecord): Station | null {
   const hasMetro = rec.metro === 1 || rec.metro === "1";
   const hasRer = rec.rer === 1 || rec.rer === "1";
   const hasTram = rec.tramway === 1 || rec.tramway === "1";
 
-  // On veut au moins un mode ferre
+  // On veut au moins un mode ferré
   if (!hasMetro && !hasRer && !hasTram) {
     return null;
   }
@@ -89,13 +179,13 @@ function mapRawRecordToStation(rec: RawRecord): Station | null {
 
   const id = String(rec.codeunique);
   const name = rec.nom_long;
-  const city = (rec.nom_zdc || rec.nom_zda || "").toString();
 
   return {
     id,
     name,
     lines,
-    city,
+    // on remplira via géocodage ensuite
+    city: "",
     arrondissement: undefined,
   };
 }
@@ -114,11 +204,42 @@ async function loadStationsFromAPI(): Promise<Station[]> {
         params: { limit, offset },
       });
 
+      // ⚠️ v2.1 renvoie directement les champs dans results[*]
       const results = (response.data?.results ?? []) as RawRecord[];
 
-      const stationsPage = results
-        .map(mapRawRecordToStation)
-        .filter((s): s is Station => s !== null);
+      const stationsPage = (
+        await Promise.all(
+          results.map(async (rec) => {
+            const base = mapRawRecordToStationSkeleton(rec);
+            if (!base) return null;
+
+            const coords = extractLatLonFromRecord(rec);
+
+            if (coords) {
+              const geoResult = await reverseGeocodeFromLatLon(
+                coords.lat,
+                coords.lon
+              );
+
+              if (geoResult) {
+                base.city = geoResult.city;
+                if (geoResult.arrondissement !== undefined) {
+                  base.arrondissement = geoResult.arrondissement;
+                }
+              }
+            }
+
+            // Si le géocodage a échoué, on met au moins quelque chose de lisible
+            if (!base.city) {
+              const fallback =
+                (rec.nom_zdc || rec.nom_zda || "").toString().trim();
+              base.city = fallback || "Inconnue";
+            }
+
+            return base;
+          })
+        )
+      ).filter((s): s is Station => s !== null);
 
       allStations.push(...stationsPage);
 
@@ -161,7 +282,6 @@ export async function getAllStations(): Promise<Station[]> {
 export async function getGameForDate(
   date: string
 ): Promise<TodayGame & { station: Station }> {
-
   // Vérifie simplement que la date respecte YYYY-MM-DD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     const error: any = new Error("Date invalide");
@@ -183,10 +303,9 @@ export async function getGameForDate(
     date,
     stationId: station.id,
     revealedLines: station.lines.slice(0, 2),
-    station
+    station,
   };
 }
-
 
 /**
  * Partie du jour basée sur la date du système.
@@ -194,8 +313,9 @@ export async function getGameForDate(
 export async function getTodayDailyGame() {
   const today = getTodayDateString();
 
+  // Retourne la date formatée côté SQL pour éviter les conversions en Date JS
   const [rowsRaw] = await pool.query(
-    `SELECT date, station_name, city, arrondissement, lines_json
+    `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, station_name, city, arrondissement, lines_json
      FROM daily_games
      WHERE date = ?
      LIMIT 1`,
@@ -212,8 +332,6 @@ export async function getTodayDailyGame() {
 
   return rows[0] || null;
 }
-
-
 
 /* -------------------------------------------------------------------------- */
 /*                              Historique parties                            */
@@ -259,7 +377,9 @@ export async function recordGame(
 
   const insertId = result.insertId as number;
 
-  const [rowsRaw] = await pool.query("SELECT * FROM games WHERE id = ?", [insertId]);
+  const [rowsRaw] = await pool.query("SELECT * FROM games WHERE id = ?", [
+    insertId,
+  ]);
   const rows = rowsRaw as {
     id: number;
     user_id: number;
@@ -343,5 +463,3 @@ export async function getAvailableDailyGameDates(limit = 60) {
 
   return rows.map((r) => r.date);
 }
-
-
