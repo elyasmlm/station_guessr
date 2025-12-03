@@ -14,6 +14,7 @@ interface ComputeScoreParams {
   attemptCost?: number;
   lineCost?: number;
   cityCost?: number;
+  isCorrectFirstTry?: boolean;
 }
 
 /**
@@ -31,8 +32,9 @@ export function computeScore({
   attemptCost = 5,
   lineCost = 10,
   cityCost = 100,
+  isCorrectFirstTry = false,
 }: ComputeScoreParams): ScoreBreakdown {
-  const attemptsPenalty = attempts * attemptCost;
+  const attemptsPenalty = isCorrectFirstTry ? 0 : attempts * attemptCost;
   const linesPenalty = extraLines * lineCost;
   const cityPenalty = cityRevealed ? cityCost : 0;
 

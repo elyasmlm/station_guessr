@@ -131,8 +131,9 @@ function GamePage() {
       attempts,
       extraLines: extraLinesUsed,
       cityRevealed,
+      isCorrectFirstTry: guesses[0]?.isCorrect === true,
     });
-  }, [game, attempts, extraLinesUsed, cityRevealed]);
+  }, [game, attempts, extraLinesUsed, cityRevealed, guesses]);
 
   // Enregistrement partie côté backend si user connecté
   useEffect(() => {
