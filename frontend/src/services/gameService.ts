@@ -5,8 +5,6 @@ export async function fetchTodayGame(): Promise<TodayGame> {
   const response = await apiClient.get<TodayGame>("/games/today");
   const data = response.data as any;
 
-  console.log("DEBUG /games/today data:", data);
-
   if (!data || !data.station || !Array.isArray(data.station.lines)) {
     throw new Error("Réponse invalide du serveur pour /games/today");
   }
