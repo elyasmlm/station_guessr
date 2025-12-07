@@ -121,6 +121,20 @@ export async function recordGameHandler(
 
     const { date, attempts, extraLines, cityRevealed, score } = req.body || {};
 
+    // Debug log pour identifier le problème de validation
+    console.log("recordGame payload:", {
+      date,
+      dateType: typeof date,
+      attempts,
+      attemptsType: typeof attempts,
+      extraLines,
+      extraLinesType: typeof extraLines,
+      cityRevealed,
+      cityRevealedType: typeof cityRevealed,
+      score,
+      scoreType: typeof score,
+    });
+
     if (
       !date ||
       typeof attempts !== "number" ||
@@ -128,6 +142,7 @@ export async function recordGameHandler(
       typeof cityRevealed !== "boolean" ||
       typeof score !== "number"
     ) {
+      console.error("Validation failed with body:", req.body);
       return res.status(400).json({
         error: {
           message: "Payload invalide pour l'enregistrement de la partie.",
