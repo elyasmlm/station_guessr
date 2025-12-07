@@ -23,9 +23,13 @@ app.get("/health", (_req, res) => {
 
 // Auth
 app.use("/api/auth", authRouter);
+// Also expose auth without the `/api` prefix for reverse-proxy setups
+app.use("/auth", authRouter);
 
 // Jeux
 app.use("/api/games", gameRouter);
+// Also accept `/games` (some proxies strip the `/api` prefix)
+app.use("/games", gameRouter);
 
 // Erreurs
 app.use(errorHandler);
