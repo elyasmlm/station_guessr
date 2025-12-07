@@ -31,6 +31,9 @@ function App() {
               <Link to="/history" className="nav-link">
                 Anciens jours
               </Link>
+              <Link to="/leaderboard" className="nav-link">
+                Classement
+              </Link>
               {user && (
                 <Link to="/account" className="nav-link nav-link-primary">
                   Mon compte

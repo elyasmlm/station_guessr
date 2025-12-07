@@ -7,6 +7,7 @@ import {
   getGamesHistoryForUser,
   getAvailableDailyGameDates,
   getDailyGameByDate,
+  getLeaderboard,
 } from "../services/game.service";
 
 function parseLinesSafe(raw: any): string[] {
@@ -118,18 +119,10 @@ export async function recordGameHandler(
         .json({ error: { message: "Authentification requise." } });
     }
 
-    const {
-      date,
-      stationName,
-      attempts,
-      extraLines,
-      cityRevealed,
-      score,
-    } = req.body || {};
+    const { date, attempts, extraLines, cityRevealed, score } = req.body || {};
 
     if (
       !date ||
-      !stationName ||
       typeof attempts !== "number" ||
       typeof extraLines !== "number" ||
       typeof cityRevealed !== "boolean" ||
@@ -142,10 +135,10 @@ export async function recordGameHandler(
       });
     }
 
+    // recordGame will resolve the station from daily_games for the provided date
     const game = await recordGame({
       userId: req.user.id,
       date,
-      stationName,
       attempts,
       extraLines,
       cityRevealed,
@@ -195,6 +188,19 @@ export async function getAvailableDatesHandler(
 
     const dates = await getAvailableDailyGameDates(limit);
     res.json({ dates });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getLeaderboardHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const rows = await getLeaderboard(50);
+    res.json({ leaderboard: rows });
   } catch (err) {
     next(err);
   }

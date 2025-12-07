@@ -20,7 +20,6 @@ export async function fetchGameByDate(date: string): Promise<TodayGame> {
 
 interface RecordGamePayload {
   date: string;
-  stationName: string;
   attempts: number;
   extraLines: number;
   cityRevealed: boolean;
@@ -37,6 +36,18 @@ export async function recordGame(
 export async function fetchGamesHistory(): Promise<RecordedGame[]> {
   const response = await apiClient.get<RecordedGame[]>("/games/history");
   return response.data;
+}
+
+export type LeaderboardRow = {
+  userId: number;
+  name: string;
+  totalScore: number;
+  gamesCount: number;
+};
+
+export async function fetchLeaderboard(limit = 50): Promise<LeaderboardRow[]> {
+  const response = await apiClient.get<{ leaderboard: LeaderboardRow[] }>(`/games/leaderboard?limit=${limit}`);
+  return response.data.leaderboard;
 }
 
 export async function fetchAvailableDates(): Promise<string[]> {

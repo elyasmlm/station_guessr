@@ -5,6 +5,7 @@ import StationLinesPanel from "../components/game/StationLinesPanel";
 import GuessInput from "../components/game/GuessInput";
 import GuessList from "../components/game/GuessList";
 import WinModal from "../components/game/WinModal";
+import RulesModal from "../components/game/RulesModal";
 import { isSameStation } from "../utils/stations";
 import { computeScore, type ScoreBreakdown } from "../utils/scoring";
 import { useAuth } from "../context/AuthContext";
@@ -36,18 +37,47 @@ function GamePage() {
 
         const data = await fetchTodayGame();
         setGame(data);
+        // Try to restore an in-browser session for this date so users
+        // can't refresh to restart their attempts.
+        const key = `station_guessr_game_${data.date}`;
+        let restored = false;
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const obj = JSON.parse(raw);
+            // restore only expected fields, with sensible fallbacks
+            setGuesses(Array.isArray(obj.guesses) ? obj.guesses : []);
+            setNextGuessId(typeof obj.nextGuessId === 'number' ? obj.nextGuessId : 1);
+            setIsSolved(!!obj.isSolved);
+            setCityRevealed(!!obj.cityRevealed);
+            setIsSaving(false);
+            setIsSaved(false);
+            setSaveError(null);
 
-        setGuesses([]);
-        setNextGuessId(1);
-        setIsSolved(false);
-        setCityRevealed(false);
-        setIsSaving(false);
-        setIsSaved(false);
-        setSaveError(null);
+            const base = Math.min(2, data.station.lines.length);
+            // clamp restored revealedLinesCount
+            const restoredLines = typeof obj.revealedLinesCount === 'number' ? Math.max(base, Math.min(obj.revealedLinesCount, data.station.lines.length)) : base;
+            setRevealedLinesCount(restoredLines);
+            setLastRevealAttemptsCount(typeof obj.lastRevealAttemptsCount === 'number' ? obj.lastRevealAttemptsCount : 0);
+            restored = true;
+          }
+        } catch (e) {
+          // ignore parse/localStorage errors and fall back to fresh state
+        }
 
-        const baseLines = Math.min(2, data.station.lines.length);
-        setRevealedLinesCount(baseLines);
-        setLastRevealAttemptsCount(0);
+        if (!restored) {
+          setGuesses([]);
+          setNextGuessId(1);
+          setIsSolved(false);
+          setCityRevealed(false);
+          setIsSaving(false);
+          setIsSaved(false);
+          setSaveError(null);
+
+          const baseLines = Math.min(2, data.station.lines.length);
+          setRevealedLinesCount(baseLines);
+          setLastRevealAttemptsCount(0);
+        }
       } catch (e: any) {
         console.error(e);
         setError("Impossible de charger la partie du jour.");
@@ -58,6 +88,25 @@ function GamePage() {
 
     void load();
   }, []);
+
+  // persist session state for the current day's game so refresh doesn't reset attempts
+  useEffect(() => {
+    if (!game) return;
+    const key = `station_guessr_game_${game.date}`;
+    try {
+      const toSave = JSON.stringify({
+        guesses,
+        nextGuessId,
+        isSolved,
+        revealedLinesCount,
+        lastRevealAttemptsCount,
+        cityRevealed,
+      });
+      localStorage.setItem(key, toSave);
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [game, guesses, nextGuessId, isSolved, revealedLinesCount, lastRevealAttemptsCount, cityRevealed]);
 
   const baseLines = useMemo(() => {
     if (!game) return 0;
@@ -105,6 +154,7 @@ function GamePage() {
 
   const handleRevealLine = () => {
     if (!game) return;
+    if (isSolved) return;
     if (!canRevealLine) return;
 
     setRevealedLinesCount((count) =>
@@ -114,6 +164,7 @@ function GamePage() {
   };
 
   const handleRevealCity = () => {
+    if (isSolved) return;
     if (!canRevealCity) return;
     setCityRevealed(true);
   };
@@ -144,13 +195,18 @@ function GamePage() {
         setSaveError(null);
         await recordGame({
           date: game.date,
-          stationName: game.station.name,
           attempts,
           extraLines: extraLinesUsed,
           cityRevealed,
           score: score.total,
         });
         setIsSaved(true);
+        try {
+          const savedKey = `station_guessr_saved_${game.date}_user_${user.id}`;
+          localStorage.setItem(savedKey, "1");
+        } catch (e) {
+          /* ignore */
+        }
       } catch (e: any) {
         console.error(e);
         setSaveError("Erreur lors de l'enregistrement de la partie.");
@@ -174,12 +230,40 @@ function GamePage() {
     user,
   ]);
 
+  // Restore isSaved flag from localStorage for logged-in users to avoid
+  // re-sending the recorded game after a page reload.
+  useEffect(() => {
+    if (!game || !user) return;
+    try {
+      const savedKey = `station_guessr_saved_${game.date}_user_${user.id}`;
+      const v = localStorage.getItem(savedKey);
+      if (v) setIsSaved(true);
+    } catch (e) {
+      // ignore
+    }
+  }, [game, user]);
+
   // modal control when user wins
   const [showWinModal, setShowWinModal] = useState(false);
+  // modal control for first-launch rules
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   useEffect(() => {
     if (isSolved) setShowWinModal(true);
   }, [isSolved]);
+
+  useEffect(() => {
+    // show rules modal on first visit (persist choice in localStorage)
+    const KEY = "station_guessr_seen_rules_v1";
+    try {
+      if (typeof window !== "undefined") {
+        const seen = localStorage.getItem(KEY);
+        if (!seen) setShowRulesModal(true);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // ---------- Rendu ----------
 
@@ -205,7 +289,14 @@ function GamePage() {
       </div>
 
       <div>
-        <GuessInput onSubmitGuess={handleSubmitGuess} />
+        {!isSolved ? (
+          <GuessInput onSubmitGuess={handleSubmitGuess} />
+        ) : (
+          <section className="card card-soft">
+            <h2 className="card-title">Partie terminée</h2>
+            <p>Tu as déjà trouvé la station pour cette partie du jour. Reviens demain pour une nouvelle partie.</p>
+          </section>
+        )}
       </div>
 
       <WinModal
@@ -218,6 +309,25 @@ function GamePage() {
           score: score?.total ?? 0,
           extraLines: extraLinesUsed,
           cityRevealed: cityRevealed,
+        }}
+      />
+      <RulesModal
+        open={showRulesModal}
+        onClose={(dontShowAgain?: boolean) => {
+          if (dontShowAgain) {
+            try {
+              localStorage.setItem("station_guessr_seen_rules_v1", "1");
+            } catch (e) {
+              /* ignore */
+            }
+          } else {
+            try {
+              localStorage.setItem("station_guessr_seen_rules_v1", "1");
+            } catch (e) {
+              /* ignore */
+            }
+          }
+          setShowRulesModal(false);
         }}
       />
 
@@ -299,7 +409,7 @@ function GamePage() {
               <button
                 type="button"
                 onClick={handleRevealLine}
-                disabled={!canRevealLine}
+                disabled={isSolved || !canRevealLine}
                 className="btn btn-warning"
               >
                 Révéler une ligne supplémentaire (-10 pts)
@@ -308,7 +418,7 @@ function GamePage() {
               <button
                 type="button"
                 onClick={handleRevealCity}
-                disabled={!canRevealCity}
+                disabled={isSolved || !canRevealCity}
                 className="btn btn-danger"
               >
                 Révéler la ville / arrondissement (-100 pts)

@@ -352,7 +352,7 @@ export type RecordedGame = {
 export type RecordGameInput = {
   userId: number;
   date: string; // YYYY-MM-DD
-  stationName: string;
+  // stationName will be resolved from `daily_games` for the provided date
   attempts: number;
   extraLines: number;
   cityRevealed: boolean;
@@ -362,23 +362,52 @@ export type RecordGameInput = {
 export async function recordGame(
   input: RecordGameInput
 ): Promise<RecordedGame> {
-  const [result] = await pool.execute<any>(
-    "INSERT INTO games (user_id, date, station_name, attempts, extra_lines, city_revealed, score) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [
-      input.userId,
-      input.date,
-      input.stationName,
-      input.attempts,
-      input.extraLines,
-      input.cityRevealed ? 1 : 0,
-      input.score,
-    ]
+  // Resolve station_name from daily_games to avoid trusting client payload
+  const daily = await getDailyGameByDate(input.date);
+  if (!daily) {
+    const err: any = new Error("Aucune partie journalière trouvée pour cette date");
+    err.status = 400;
+    throw err;
+  }
+
+  const stationName = daily.station_name;
+
+  // Check if a record already exists for this (user_id, date).
+  const [existingRaw] = await pool.query(
+    "SELECT id FROM games WHERE user_id = ? AND date = ? LIMIT 1",
+    [input.userId, input.date]
   );
 
-  const insertId = result.insertId as number;
+  const existingRows = existingRaw as { id: number }[];
+
+  let gameRowId: number | null = null;
+
+  if (existingRows.length > 0) {
+    // Update the existing row with the new values
+    const existingId = existingRows[0].id;
+    await pool.execute(
+      "UPDATE games SET station_name = ?, attempts = ?, extra_lines = ?, city_revealed = ?, score = ? WHERE id = ?",
+      [stationName, input.attempts, input.extraLines, input.cityRevealed ? 1 : 0, input.score, existingId]
+    );
+    gameRowId = existingId;
+  } else {
+    const [result] = await pool.execute<any>(
+      "INSERT INTO games (user_id, date, station_name, attempts, extra_lines, city_revealed, score) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [
+        input.userId,
+        input.date,
+        stationName,
+        input.attempts,
+        input.extraLines,
+        input.cityRevealed ? 1 : 0,
+        input.score,
+      ]
+    );
+    gameRowId = result.insertId as number;
+  }
 
   const [rowsRaw] = await pool.query("SELECT * FROM games WHERE id = ?", [
-    insertId,
+    gameRowId,
   ]);
   const rows = rowsRaw as {
     id: number;
@@ -425,7 +454,22 @@ export async function getGamesHistoryForUser(userId: number) {
     created_at: Date;
   }[];
 
-  return rows;
+  // Normalize rows to the RecordedGame shape expected by the frontend:
+  // - date: YYYY-MM-DD string
+  // - stationName: station_name
+  // - cityRevealed: boolean
+  // - createdAt: ISO string
+  return rows.map((g) => ({
+    id: g.id,
+    userId: g.user_id,
+    date: g.date instanceof Date ? g.date.toISOString().slice(0, 10) : String(g.date).slice(0, 10),
+    stationName: g.station_name ?? "",
+    attempts: g.attempts,
+    extraLines: g.extra_lines,
+    cityRevealed: !!g.city_revealed,
+    score: g.score,
+    createdAt: g.created_at instanceof Date ? g.created_at.toISOString() : String(g.created_at),
+  }));
 }
 
 export async function getDailyGameByDate(date: string) {
@@ -446,6 +490,41 @@ export async function getDailyGameByDate(date: string) {
   }[];
 
   return rows[0] || null;
+}
+
+export type LeaderboardRow = {
+  userId: number;
+  name: string;
+  totalScore: number;
+  gamesCount: number;
+};
+
+export async function getLeaderboard(limit = 50): Promise<LeaderboardRow[]> {
+  const [rowsRaw] = await pool.query(
+    `SELECT u.id AS userId, COALESCE(u.display_name, u.email) AS name,
+            COALESCE(SUM(g.score),0) AS totalScore, COUNT(g.id) AS gamesCount
+     FROM users u
+     LEFT JOIN games g ON g.user_id = u.id
+     GROUP BY u.id, name
+     HAVING gamesCount > 0
+     ORDER BY totalScore DESC
+     LIMIT ?`,
+    [limit]
+  );
+
+  const rows = rowsRaw as {
+    userId: number;
+    name: string;
+    totalScore: number;
+    gamesCount: number;
+  }[];
+
+  return rows.map((r) => ({
+    userId: r.userId,
+    name: r.name,
+    totalScore: Number(r.totalScore) || 0,
+    gamesCount: r.gamesCount || 0,
+  }));
 }
 
 export async function getAvailableDailyGameDates(limit = 60) {

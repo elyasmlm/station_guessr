@@ -61,10 +61,11 @@ function AccountPage() {
         </p>
       </div>
 
-      <div className="page-grid-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 980 }}>
         <div>
           <PointsSummary history={history} />
         </div>
+
         <div>
           <GamesHistoryTable history={history} />
         </div>

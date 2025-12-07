@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS `games` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_games_user_id` (`user_id`),
+  UNIQUE KEY `uniq_games_user_date` (`user_id`,`date`),
   CONSTRAINT `fk_games_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

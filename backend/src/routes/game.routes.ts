@@ -7,6 +7,7 @@ import {
   recordGameHandler,
   getHistoryHandler,
   getAvailableDatesHandler,
+  getLeaderboardHandler,
 } from "../controllers/game.controller";
 import { requireAuth } from "../middlewares/auth.middleware";
 
@@ -26,6 +27,9 @@ router.get("/history", requireAuth, getHistoryHandler);
 
 // Liste des dates où il existe au moins une partie enregistrée en BDD
 router.get("/available-dates", getAvailableDatesHandler);
+
+// Leaderboard public
+router.get("/leaderboard", getLeaderboardHandler);
 
 // Partie d'une date donnée (publique)
 router.get("/:date", getGameByDateHandler);
