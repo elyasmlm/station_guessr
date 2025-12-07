@@ -23,10 +23,6 @@ export async function requireAuth(
 
   const token = authHeader.slice("Bearer ".length).trim();
 
-  // Handle common bad token values sent from clients (e.g. "null" or "undefined")
-  if (token === "null" || token === "undefined" || token.length === 0) {
-    return res.status(401).json({ error: { message: "Token invalide ou expiré." } });
-  }
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
@@ -50,11 +46,10 @@ export async function requireAuth(
     };
 
     next();
-  } catch (err: any) {
-    // Don't print full stack traces for malformed tokens — log a concise warning.
-    const name = err && err.name ? err.name : "JwtError";
-    const message = err && err.message ? err.message : String(err);
-    console.warn(`JWT verify failed: ${name}: ${message}`);
-    return res.status(401).json({ error: { message: "Token invalide ou expiré." } });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(401)
+      .json({ error: { message: "Token invalide ou expiré." } });
   }
 }
