@@ -22,10 +22,10 @@ app.get("/health", (_req, res) => {
 });
 
 // Auth
-app.use("/auth", authRouter);
+app.use("/api/auth", authRouter);
 
 // Jeux
-app.use("/games", gameRouter);
+app.use("/api/games", gameRouter);
 
 // Erreurs
 app.use(errorHandler);
